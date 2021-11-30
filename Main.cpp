@@ -65,8 +65,6 @@ DWORD WINAPI PhilosopherThread(void* Id) {
 	{
 		philosopher->Think();
 
-
-
 		
 		Sleep(100);
 	
@@ -108,6 +106,8 @@ void UpdateUI(HWND hWnd, int pos) {
 		UIHelper* uiHelper = new UIHelper(hWnd, philo, pos);
 
 		uiHelper->UpdateUI();
+
+		delete uiHelper;
 	}
 }
 
