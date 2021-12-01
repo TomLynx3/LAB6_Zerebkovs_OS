@@ -3,7 +3,8 @@
 #include <time.h>
 #include "TPhilosopher.h"
 
-//#pragma package(smart_init)
+#pragma package(smart_init)
+
 
 #define MAX_PHILOSOPHERS 5
 #define random(x) (rand() % x)
@@ -17,15 +18,35 @@
 
 static TPhilosopher* Philosophers[MAX_PHILOSOPHERS] = { NULL, NULL, NULL, NULL, NULL };
 
-static void Stop(char* Msg) {
-	for (int i = 0; i < MAX_PHILOSOPHERS; i++) if (Philosophers[i]) {
-		Philosophers[i]->Kill();
-	}
+static void Stop(const char* Msg) {
+	for (int i = 0; i < MAX_PHILOSOPHERS; i++) if (Philosophers[i]) Philosophers[i]->Kill();
 	MessageBox(NULL, Msg, "Problem is not solved", MB_OK | MB_ICONERROR);
 	TerminateProcess(GetCurrentProcess(), 1);
 }
 
-DWORD WINAPI _PhilosopherThread(void* P);
+DWORD WINAPI _PhilosopherThread(void* P)
+{
+	HWND wnd = FindWindow("#32770", NULL);
+	DWORD id = -1;
+	for (int i = 0; i < MAX_PHILOSOPHERS; i++) if (Philosophers[i] == P) { id = i; break; }
+	TPhilosopher* Philosopher = (TPhilosopher*)P;
+	bool die = false;
+	while (!die && WaitForSingleObject(Philosopher->FStop, 100) == WAIT_TIMEOUT) {
+		EnterCriticalSection(&Philosopher->CPhilosopher);
+		switch (Philosopher->FState) {
+		case psIdle: Philosopher->FForce += IDLE_FORCE; break;
+		case psThink: Philosopher->FForce += THINK_FORCE; Philosopher->FWisdom++; break;
+		case psEat: Philosopher->FForce += EAT_FORCE; break;
+		}
+		die = Philosopher->FState == psDie || Philosopher->FForce < 0;
+		LeaveCriticalSection(&Philosopher->CPhilosopher);
+		if (wnd) PostMessage(wnd, WM_PHILOSOPHER, id, (LPARAM)P);
+	}
+	Philosopher->Kill();
+	if (wnd) PostMessage(wnd, WM_PHILOSOPHER, id, (LPARAM)P);
+	return 0;
+}
+
 
 TPhilosopher::TPhilosopher()
 {
@@ -36,9 +57,7 @@ TPhilosopher::TPhilosopher()
 		Philosophers[i] = this;
 		break;
 	}
-	if (!found) {
-		Stop(_strdup("Population of the philosophers is overflowed"));
-	}
+	if (!found) Stop("Population of the philosophers is overflowed");
 	FForce = INIT_FORCE;
 	FWisdom = 0;
 	FState = psIdle;
@@ -72,54 +91,10 @@ TPhilosopher::~TPhilosopher()
 	CloseHandle(FStop);
 }
 
-DWORD WINAPI _PhilosopherThread(void* P)
-{
-	HWND wnd = FindWindow("#32770", NULL);
-	DWORD id = -1;
-
-	for (int i = 0; i < MAX_PHILOSOPHERS; i++) if (Philosophers[i] == P) {
-		id = i;
-		break;
-	}
-
-	TPhilosopher* Philosopher = (TPhilosopher*)P;
-	bool die = false;
-
-	while (!die && WaitForSingleObject(Philosopher->FStop, 100) == WAIT_TIMEOUT) {
-		EnterCriticalSection(&Philosopher->CPhilosopher);
-
-		switch (Philosopher->FState) {
-		case psIdle: {
-			Philosopher->FForce += IDLE_FORCE;
-		}
-		case psThink: {
-			Philosopher->FForce += THINK_FORCE; Philosopher->FWisdom++;
-		}
-		case psEat: {
-			Philosopher->FForce += EAT_FORCE;
-		}
-		}
-
-		die = Philosopher->FState == psDie || Philosopher->FForce < 0;
-		LeaveCriticalSection(&Philosopher->CPhilosopher);
-
-		if (wnd) {
-			PostMessage(wnd, WM_PHILOSOPHER, id, (LPARAM)P);
-		}
-	}
-
-	Philosopher->Kill();
-	if (wnd) {
-		PostMessage(wnd, WM_PHILOSOPHER, id, (LPARAM)P);
-	}
-	return 0;
-}
 
 void TPhilosopher::Think()
 {
-	if (GetState() != psIdle) {
-		return;
-	}
+	if (GetState() != psIdle) return;
 	SetState(psThink);
 	WaitForSingleObject(FStop, THINK_TIME * (100 - FVoracity) / 100);
 	SetState(psIdle);
@@ -127,9 +102,7 @@ void TPhilosopher::Think()
 
 void TPhilosopher::Eat()
 {
-	if (GetState() != psIdle) {
-		return;
-	}
+	if (GetState() != psIdle) return;
 	SetState(psEat);
 	WaitForSingleObject(FStop, EAT_TIME * FVoracity / 100);
 	SetState(psIdle);
@@ -138,17 +111,12 @@ void TPhilosopher::Eat()
 void TPhilosopher::SetState(int AState)
 {
 	int state = GetState();
-	if (state == psDie || state == AState) {
-		return;
-	}
+	if (state == psDie || state == AState) return;
+
 	if (AState == psEat) {
 		int cnt = 0;
-		for (int i = 0; i < MAX_PHILOSOPHERS; i++) if (Philosophers[i] && Philosophers[i]->GetState() == psEat) {
-			cnt++;
-		}
-		if (cnt >= 2) {
-			Stop(_strdup("Two philosophers tried to use one fork at the same time"));
-		}
+		for (int i = 0; i < MAX_PHILOSOPHERS; i++) if (Philosophers[i] && Philosophers[i]->GetState() == psEat) cnt++;
+		if (cnt >= 2) Stop("Two philosophers tried to use one fork at the same time");
 	}
 
 	EnterCriticalSection(&CPhilosopher);
@@ -196,12 +164,11 @@ int  TPhilosopher::GetVoracity()
 
 bool TPhilosopher::SetVoracity(int AVoracity)
 {
-	if (AVoracity < 0 || AVoracity > 100) {
-		return false;
-	}
+	if (AVoracity < 0 || AVoracity > 100) return false;
 	EnterCriticalSection(&CPhilosopher);
 	FVoracity = AVoracity;
 	LeaveCriticalSection(&CPhilosopher);
 	return true;
 }
+
 

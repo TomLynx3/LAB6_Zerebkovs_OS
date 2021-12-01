@@ -1,5 +1,5 @@
-#ifndef PhilosopherH
-#define PhilosopherH
+#ifndef TPhilosopherH
+#define TPhilosopherH
 
 #undef UNICODE
 #include <Windows.h>
@@ -10,11 +10,10 @@
 #define psEat   2
 #define psDie   3
 
-#define WM_PHILOSOPHER WM_APP
+#define WM_PHILOSOPHER WM_USER
 
 class TPhilosopher {
     friend DWORD WINAPI _PhilosopherThread(void* P);
-
 private:
     int FForce, FWisdom, FState;
     CRITICAL_SECTION CPhilosopher;
@@ -22,7 +21,6 @@ private:
     HANDLE FStop;
     int FVoracity;
     void SetState(int AState);
-
 public:
     TPhilosopher();
     TPhilosopher(TPhilosopher& P);

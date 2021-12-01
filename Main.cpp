@@ -9,7 +9,7 @@
 
 #pragma warning (disable:4996)
 
-#define WM_PHILOSOPHER WM_USER
+//#define WM_PHILOSOPHER WM_USER
 
 BOOL CALLBACK MainWndProc(HWND, UINT, WPARAM, LPARAM);
 
@@ -59,18 +59,36 @@ DWORD WINAPI PhilosopherThread(void* Id) {
 	TPhilosopher* philosopher = philos[id];
 
 	
-	PostMessage(mainHWND,WM_PHILOSOPHER,(WPARAM) Id, 0);
+	//PostMessage(mainHWND,WM_PHILOSOPHER,(WPARAM) Id, 0);
 
 	while (philosopher->GetState()!=psDie)
 	{
 		philosopher->Think();
 
-		
-		Sleep(100);
-	
+		int force = philosopher->GetForce();
+
+		if (force <= 30) {
+			PostMessage(mainHWND, WM_PHILOSOPHER, (WPARAM)Id, 0);
+			WaitForSingleObject(DinningRoomSem, INFINITE);
+
+			
+			WaitForSingleObject(ForkMutexs[id], INFINITE);
+			WaitForSingleObject(ForkMutexs[(id + 1) % 5], INFINITE);
+			
+
+			philosopher->Eat();
+
+			PostMessage(mainHWND, WM_PHILOSOPHER, (WPARAM)Id, 0);
+
+			ReleaseMutex(ForkMutexs[id]);
+			ReleaseMutex(ForkMutexs[(id + 1) % 5]);
+
+			ReleaseSemaphore(DinningRoomSem, 1,NULL);
+		}
 
 
 		PostMessage(mainHWND, WM_PHILOSOPHER, (WPARAM)Id, 0);
+
 	}
 
 	return 0;
@@ -119,6 +137,7 @@ BOOL CALLBACK MainWndProc(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam) {
 	case WM_INITDIALOG:
 		mainHWND = hWnd;
 
+		Initialize();
 		return TRUE;
 	case WM_COMMAND:
 		switch (LOWORD(wParam)) {
