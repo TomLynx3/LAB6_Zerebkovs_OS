@@ -3,7 +3,7 @@
 #include "resource.h"
 #include "TPhilosopher.h"
 #include "UIHelper.h"
-
+#include <CommCtrl.h>
 
 
 
@@ -26,11 +26,14 @@ HWND mainHWND;
 
 bool isDeleteRunning = false;
 
+HINSTANCE hInstance;
 
-void CreatePhilosophers() {
+
+void CreatePhilosophers(int voracity = 50) {
 
 	for (int i = 0; i < 5; i++) {
 		TPhilosopher* philo = new TPhilosopher();
+		philo->SetVoracity(voracity);
 		philos[i] = philo;
 	}
 
@@ -62,11 +65,8 @@ DWORD WINAPI PhilosopherThread(void* Id) {
 	{
 		philosopher->Think();
 
-				
-
 
 			WaitForSingleObject(DinningRoomSem, INFINITE);
-
 
 			
 			WaitForSingleObject(ForkMutexs[id], INFINITE);
@@ -75,7 +75,6 @@ DWORD WINAPI PhilosopherThread(void* Id) {
 
 			philosopher->Eat();
 
-			
 
 			ReleaseMutex(ForkMutexs[id]);
 			ReleaseMutex(ForkMutexs[(id + 1) % 5]);
@@ -91,7 +90,11 @@ DWORD WINAPI PhilosopherThread(void* Id) {
 
 void HandleStart(HWND hWnd) {
 
-	CreatePhilosophers();
+
+	if (philos[0] == NULL) {
+		CreatePhilosophers();
+	}
+	
 	isDeleteRunning = false;
 
 	for (int i = 0; i < 5; i++) {
@@ -109,6 +112,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int) {
 
 	DialogBox(hInstance, MAKEINTRESOURCE(IDD_MAINDIALOG), NULL, (DLGPROC)MainWndProc);
 
+	::hInstance = hInstance;
 
 	return 0;
 }
@@ -170,8 +174,96 @@ void SetStateColor(LPARAM param, HWND hWnd,HDC hdc) {
 		}
 
 
-
 	}
+}
+
+
+
+void SetSliderTxtValue(HWND hWnd,int pos) {
+	char buf[4];
+
+	sprintf(buf, "%d", pos);
+
+	SetDlgItemText(hWnd, IDC_VORACITYTXT, buf);
+}
+
+void InitializeSlider(HWND hWnd) {
+
+	TPhilosopher* philosopher = philos[0];
+	int pos = 50;
+	if (philosopher !=  NULL) {
+		pos = philosopher->GetVoracity();
+	}
+
+	SetSliderTxtValue(hWnd,pos);
+	
+	SendMessage(GetDlgItem(hWnd, IDC_SLIDER1), TBM_SETRANGE, (WPARAM)FALSE, MAKELPARAM(0, 100));
+	SendMessage(GetDlgItem(hWnd, IDC_SLIDER1), TBM_SETPOS, TRUE, pos);
+}
+
+void HandleScrollChange(HWND hWnd) {
+
+	DWORD pos = SendMessage(GetDlgItem(hWnd, IDC_SLIDER1), TBM_GETPOS, 0, 0);
+
+	SetSliderTxtValue(hWnd, static_cast<int>(pos));
+}
+
+void SetVoracity(HWND hWnd) {
+
+	DWORD ver = SendMessage(GetDlgItem(hWnd, IDC_SLIDER1), TBM_GETPOS, 0, 0);
+
+	if (philos[0] == NULL) {
+
+		CreatePhilosophers(static_cast<int>(ver));
+	}
+	else {
+		for (int i = 0; i < 5; i++) {
+			TPhilosopher* philosopher = philos[i];
+
+
+		}
+	}
+	
+}
+
+BOOL CALLBACK VoracityWndProc(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam) {
+	switch (Msg) {
+	case WM_INITDIALOG:
+		
+		InitializeSlider(hWnd);
+		return TRUE;
+	case WM_COMMAND:
+		switch (LOWORD(wParam)) {
+
+		case IDC_SETVORACITY:
+
+			SetVoracity(hWnd);
+			EndDialog(hWnd, NULL);
+			return TRUE;
+
+		}
+		return FALSE;
+	case WM_DESTROY:
+		EndDialog(hWnd, NULL);
+		return TRUE;
+	case WM_HSCROLL:
+		if (lParam != 0)
+		{
+			switch (LOWORD(wParam))
+			{
+			case TB_THUMBTRACK:
+			case TB_ENDTRACK:
+				HandleScrollChange(hWnd);
+				break;
+			}
+		}
+		
+		return TRUE;
+	case WM_CLOSE:
+		EndDialog(hWnd, NULL);
+		return TRUE;
+	}
+	return FALSE;
 }
 
 
@@ -196,6 +288,9 @@ BOOL CALLBACK MainWndProc(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam) {
 			return TRUE;	
 		case IDC_STOP:
 			HandleStop(hWnd);
+			return TRUE;
+		case IDC_VORACITY:
+			DialogBox(hInstance, MAKEINTRESOURCE(IDD_VORACITYDIAG),hWnd, VoracityWndProc);
 			return TRUE;
 			
 		}
