@@ -28,8 +28,10 @@ bool isDeleteRunning = false;
 
 HINSTANCE hInstance;
 
+int voracity = 50;
 
-void CreatePhilosophers(int voracity = 50) {
+
+void CreatePhilosophers() {
 
 	for (int i = 0; i < 5; i++) {
 		TPhilosopher* philo = new TPhilosopher();
@@ -91,9 +93,9 @@ DWORD WINAPI PhilosopherThread(void* Id) {
 void HandleStart(HWND hWnd) {
 
 
-	if (philos[0] == NULL) {
-		CreatePhilosophers();
-	}
+
+	CreatePhilosophers();
+	
 	
 	isDeleteRunning = false;
 
@@ -189,16 +191,10 @@ void SetSliderTxtValue(HWND hWnd,int pos) {
 
 void InitializeSlider(HWND hWnd) {
 
-	TPhilosopher* philosopher = philos[0];
-	int pos = 50;
-	if (philosopher !=  NULL) {
-		pos = philosopher->GetVoracity();
-	}
-
-	SetSliderTxtValue(hWnd,pos);
+	SetSliderTxtValue(hWnd,voracity);
 	
 	SendMessage(GetDlgItem(hWnd, IDC_SLIDER1), TBM_SETRANGE, (WPARAM)FALSE, MAKELPARAM(0, 100));
-	SendMessage(GetDlgItem(hWnd, IDC_SLIDER1), TBM_SETPOS, TRUE, pos);
+	SendMessage(GetDlgItem(hWnd, IDC_SLIDER1), TBM_SETPOS, TRUE, voracity);
 }
 
 void HandleScrollChange(HWND hWnd) {
@@ -212,17 +208,18 @@ void SetVoracity(HWND hWnd) {
 
 	DWORD ver = SendMessage(GetDlgItem(hWnd, IDC_SLIDER1), TBM_GETPOS, 0, 0);
 
-	if (philos[0] == NULL) {
+	::voracity = static_cast<int>(ver);
 
-		CreatePhilosophers(static_cast<int>(ver));
-	}
-	else {
+	if (philos[0] != NULL) {
 		for (int i = 0; i < 5; i++) {
 			TPhilosopher* philosopher = philos[i];
 
+			philosopher->SetVoracity(voracity);
 
 		}
 	}
+	
+	
 	
 }
 
