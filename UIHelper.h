@@ -2,6 +2,7 @@
 #include <windows.h>
 #include "TPhilosopher.h"
 #include "resource.h"
+#include <wingdi.h>
 
 #pragma warning (disable:4996)
 
@@ -22,6 +23,7 @@ private:
 public:
 	UIHelper(HWND AhWnd, TPhilosopher* Aphilosopher,int Apos);
 	void UpdateUI();
+	void UpdateStateTextColor(HDC hdc);
 	~UIHelper();
 
 };

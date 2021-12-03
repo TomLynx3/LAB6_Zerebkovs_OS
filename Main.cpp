@@ -9,7 +9,6 @@
 
 #pragma warning (disable:4996)
 
-//#define WM_PHILOSOPHER WM_USER
 
 BOOL CALLBACK MainWndProc(HWND, UINT, WPARAM, LPARAM);
 
@@ -25,7 +24,7 @@ HANDLE ForkMutexs[5];
 HWND mainHWND;
 
 
-
+bool isDeleteRunning = false;
 
 
 void CreatePhilosophers() {
@@ -58,18 +57,16 @@ DWORD WINAPI PhilosopherThread(void* Id) {
 
 	TPhilosopher* philosopher = philos[id];
 
-	
-	//PostMessage(mainHWND,WM_PHILOSOPHER,(WPARAM) Id, 0);
 
-	while (philosopher->GetState()!=psDie)
+	while (philosopher->GetState()!=psDie && !isDeleteRunning)
 	{
 		philosopher->Think();
 
-		int force = philosopher->GetForce();
+				
 
-		if (force <= 30) {
-			PostMessage(mainHWND, WM_PHILOSOPHER, (WPARAM)Id, 0);
+
 			WaitForSingleObject(DinningRoomSem, INFINITE);
+
 
 			
 			WaitForSingleObject(ForkMutexs[id], INFINITE);
@@ -78,16 +75,13 @@ DWORD WINAPI PhilosopherThread(void* Id) {
 
 			philosopher->Eat();
 
-			PostMessage(mainHWND, WM_PHILOSOPHER, (WPARAM)Id, 0);
+			
 
 			ReleaseMutex(ForkMutexs[id]);
 			ReleaseMutex(ForkMutexs[(id + 1) % 5]);
 
 			ReleaseSemaphore(DinningRoomSem, 1,NULL);
-		}
 
-
-		PostMessage(mainHWND, WM_PHILOSOPHER, (WPARAM)Id, 0);
 
 	}
 
@@ -95,14 +89,18 @@ DWORD WINAPI PhilosopherThread(void* Id) {
 }
 
 
-void HandleStart() {
+void HandleStart(HWND hWnd) {
 
 	CreatePhilosophers();
+	isDeleteRunning = false;
 
 	for (int i = 0; i < 5; i++) {
 
 		CloseHandle(CreateThread(NULL, 0, PhilosopherThread, (LPVOID)i, 0, NULL));
 	}
+
+	EnableWindow(GetDlgItem(hWnd, IDC_START), FALSE);
+	EnableWindow(GetDlgItem(hWnd, IDC_STOP), TRUE);
 }
 
 
@@ -113,6 +111,27 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int) {
 
 
 	return 0;
+}
+
+void HandleStop(HWND hWnd) {
+
+	isDeleteRunning = true;
+
+	EnableWindow(GetDlgItem(hWnd, IDC_STOP), FALSE);
+
+	for (int i = 0; i < 5; i++) {
+		TPhilosopher* philo = philos[i];
+
+		philo->Kill();
+		
+		delete philo;
+
+		philos[i] = NULL;
+	}
+
+	EnableWindow(GetDlgItem(hWnd, IDC_START), TRUE);
+	
+
 }
 
 void UpdateUI(HWND hWnd, int pos) {
@@ -129,6 +148,32 @@ void UpdateUI(HWND hWnd, int pos) {
 	}
 }
 
+void SetStateColor(LPARAM param, HWND hWnd,HDC hdc) {
+
+	int control = GetDlgCtrlID((HWND)param);
+
+	int index = control - IDC_STATE1;
+
+	if (index >= 0 && index < 5) {
+
+		TPhilosopher* philo = philos[index];
+
+		if (philo != NULL) {
+
+			UIHelper* uiHelper = new UIHelper(hWnd, philo, index);
+
+			uiHelper->UpdateStateTextColor(hdc);
+
+			delete uiHelper;
+
+
+		}
+
+
+
+	}
+}
+
 
 
 BOOL CALLBACK MainWndProc(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam) {
@@ -138,12 +183,19 @@ BOOL CALLBACK MainWndProc(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam) {
 		mainHWND = hWnd;
 
 		Initialize();
+		EnableWindow(GetDlgItem(hWnd, IDC_STOP), FALSE);
 		return TRUE;
 	case WM_COMMAND:
 		switch (LOWORD(wParam)) {
 		
 		case IDC_START:
-			HandleStart();
+			HandleStart(hWnd);
+			return TRUE;
+		case IDC_EXIT:
+			PostQuitMessage(0);
+			return TRUE;	
+		case IDC_STOP:
+			HandleStop(hWnd);
 			return TRUE;
 			
 		}
@@ -157,6 +209,13 @@ BOOL CALLBACK MainWndProc(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam) {
 	case WM_CLOSE:
 		DestroyWindow(hWnd);
 		return TRUE;
+	case WM_CTLCOLORSTATIC:
+
+		SetBkMode((HDC)wParam, TRANSPARENT);
+
+		SetStateColor(lParam, hWnd, (HDC)wParam);
+
+		return (BOOL)GetSysColorBrush(COLOR_MENU);
 	}
 	return FALSE;
 }

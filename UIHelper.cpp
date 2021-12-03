@@ -32,6 +32,35 @@ void UIHelper::UpdateUI()
 	UpdateWisdom();
 }
 
+void UIHelper::UpdateStateTextColor(HDC hdc)
+{
+	int state = philosopher->GetState();
+
+
+
+	COLORREF color = 0x00FF0000;;
+
+	switch (state)
+	{
+	case psIdle:
+		color = 0x00FF0000;
+		break;
+	case psThink:
+		color = 0x0000FF00;
+		break;
+	case psEat:
+		color = 0xFFFFFFFF;
+		break;
+	case psDie:
+		color = 0x000000FF;
+		break;
+	default:
+		break;
+	}
+
+	SetTextColor(hdc, color);
+}
+
 UIHelper::~UIHelper()
 {
 }
