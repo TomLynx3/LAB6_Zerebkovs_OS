@@ -237,6 +237,9 @@ BOOL CALLBACK VoracityWndProc(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam)
 			SetVoracity(hWnd);
 			EndDialog(hWnd, NULL);
 			return TRUE;
+		case IDC_CANCEL:
+			EndDialog(hWnd, NULL);
+			return TRUE;
 
 		}
 		return FALSE;
